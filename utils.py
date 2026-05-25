@@ -1,7 +1,79 @@
 import torch
 from pathlib import Path
 
+import torch
 
+
+
+
+
+
+def build_structural_features(triples, num_entities, num_relations):
+    """
+    Build non-random node features from graph structure.
+
+    Features:
+    - in-degree
+    - out-degree
+    - total degree
+    - outgoing relation histogram
+    - incoming relation histogram
+
+    Output:
+        x shape = [num_entities, 3 + 2 * num_relations]
+    """
+
+    device = triples.device
+
+    heads = triples[:, 0]
+    relations = triples[:, 1]
+    tails = triples[:, 2]
+
+    out_degree = torch.zeros(num_entities, 1, device=device)
+    in_degree = torch.zeros(num_entities, 1, device=device)
+
+    out_degree.index_add_(
+        0,
+        heads,
+        torch.ones_like(heads, dtype=torch.float).view(-1, 1)
+    )
+
+    in_degree.index_add_(
+        0,
+        tails,
+        torch.ones_like(tails, dtype=torch.float).view(-1, 1)
+    )
+
+    total_degree = in_degree + out_degree
+
+    out_rel_hist = torch.zeros(num_entities, num_relations, device=device)
+    in_rel_hist = torch.zeros(num_entities, num_relations, device=device)
+
+    out_rel_hist[heads, relations] += 1
+    in_rel_hist[tails, relations] += 1
+
+    x = torch.cat(
+        [
+            in_degree,
+            out_degree,
+            total_degree,
+            out_rel_hist,
+            in_rel_hist
+        ],
+        dim=1
+    )
+
+    # Log transform to reduce scale differences
+    x = torch.log1p(x)
+
+    # Normalize each feature column
+    mean = x.mean(dim=0, keepdim=True)
+    std = x.std(dim=0, keepdim=True) + 1e-12
+    x = (x - mean) / std
+
+    return x
+
+    
 def save_model(model, path, optimizer=None, epoch=None, metadata=None):
     """
     Save a PyTorch or PyTorch Geometric model.
