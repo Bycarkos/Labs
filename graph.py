@@ -56,7 +56,7 @@ class Graph(Dataset):
         rel_raw = [self._relation2idx[rel] for rel in rel]
         trg_raw = [self._node2idx[node] for node in trg]
 
-        return np.array((src_raw, rel_raw, trg_raw), dtype=np.int32)
+        return np.vstack((src_raw, rel_raw, trg_raw), dtype=np.int32)
 
     def to_heterogeneous(self):
 
